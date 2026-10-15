@@ -9,6 +9,7 @@ import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { PaymentsModule } from './payments/payments.module';
 import { ExercisesModule } from './exercises/exercises.module';
 import { RoutinesModule } from './routines/routines.module';
+import { RecommendationsModule } from './recommendations/recommendations.module';
 import { HomeModule } from './home/home.module';
 
 @Module({
@@ -20,6 +21,7 @@ import { HomeModule } from './home/home.module';
     PaymentsModule,
     ExercisesModule,
     RoutinesModule,
+    RecommendationsModule,
     HomeModule,
   ],
   controllers: [AppController],

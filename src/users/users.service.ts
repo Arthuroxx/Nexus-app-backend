@@ -4,9 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { getSupabase } from '../supabase/supabase-client';
-import type { AppUser } from '../models';
+import type { AppUser, ExperienceLevel } from '../models';
 
 const PUBLIC_COLUMNS = 'id, name, email, role, created_at';
+const PROFILE_COLUMNS = 'id, name, email, role, created_at, experience_level';
 const AUTH_COLUMNS = 'id, name, email, role, created_at, password_hash';
 
 const UUID_RE =
@@ -47,6 +48,55 @@ export class UsersService {
     if (error) throw error;
     if (!data) throw new NotFoundException(`User ${id} not found`);
     return data as AppUser;
+  }
+
+  async findProfileById(
+    id: string,
+  ): Promise<AppUser & { experienceLevel: ExperienceLevel | null }> {
+    assertValidId(id);
+    const { data, error } = await this.supabase
+      .from('users')
+      .select(PROFILE_COLUMNS)
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) throw new NotFoundException(`User ${id} not found`);
+    return {
+      id: data.id as string,
+      name: data.name as string,
+      email: data.email as string,
+      role: data.role as AppUser['role'],
+      experienceLevel:
+        (data.experience_level as ExperienceLevel | null) ?? null,
+    };
+  }
+
+  async getExperienceLevel(id: string): Promise<ExperienceLevel | null> {
+    assertValidId(id);
+    const { data, error } = await this.supabase
+      .from('users')
+      .select('experience_level')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) throw new NotFoundException(`User ${id} not found`);
+    return (data.experience_level as ExperienceLevel | null) ?? null;
+  }
+
+  async updateExperienceLevel(
+    id: string,
+    level: ExperienceLevel | null,
+  ): Promise<ExperienceLevel | null> {
+    assertValidId(id);
+    const { data, error } = await this.supabase
+      .from('users')
+      .update({ experience_level: level })
+      .eq('id', id)
+      .select('experience_level')
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) throw new NotFoundException(`User ${id} not found`);
+    return (data.experience_level as ExperienceLevel | null) ?? null;
   }
 
   private toMember(data: Record<string, unknown>): AppUser {

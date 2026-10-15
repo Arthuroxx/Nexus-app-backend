@@ -110,6 +110,47 @@ export class ExercisesService {
     return toExercise(result.data);
   }
 
+  async findByName(userId: string, name: string): Promise<Exercise | null> {
+    const normalized = name.trim();
+    if (normalized.length === 0) {
+      return null;
+    }
+    const result = (await this.supabase
+      .from('exercises')
+      .select(EXERCISE_COLUMNS)
+      .eq('user_id', userId)
+      .ilike('name', normalized)
+      .maybeSingle()) as QueryResult<ExerciseRow | null>;
+    if (result.error) throw result.error;
+    return result.data ? toExercise(result.data) : null;
+  }
+
+  async ensureByName(
+    userId: string,
+    data: {
+      name: string;
+      muscleGroup: MuscleGroup;
+      defaultSets: number;
+      defaultReps: number;
+      defaultLoadKg: number | null;
+    },
+  ): Promise<Exercise> {
+    const existing = await this.findByName(userId, data.name);
+    if (existing) {
+      return existing;
+    }
+
+    try {
+      return await this.create(userId, data);
+    } catch (error) {
+      const existingAgain = await this.findByName(userId, data.name);
+      if (existingAgain) {
+        return existingAgain;
+      }
+      throw error;
+    }
+  }
+
   async create(userId: string, input: ExerciseInput): Promise<Exercise> {
     const data = this.normalizeInput(input);
     const result = (await this.supabase

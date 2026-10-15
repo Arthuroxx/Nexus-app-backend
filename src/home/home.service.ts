@@ -3,9 +3,13 @@ import { getSupabase } from '../supabase/supabase-client';
 import { UsersService } from '../users/users.service';
 import { RoutinesService } from '../routines/routines.service';
 import { assertUuid } from '../common/uuid';
+import { ValidationErrors, readEnum } from '../common/validation';
+import { EXPERIENCE_LEVELS } from '../models';
 import type { QueryResult } from '../models';
 import type {
+  ExperienceLevel,
   HomeView,
+  LastWorkoutView,
   MeView,
   ScheduleDay,
   SessionDay,
@@ -28,8 +32,32 @@ export class HomeService {
 
   async getMe(userId: string): Promise<MeView> {
     assertUuid(userId, 'El usuario');
-    const user = await this.usersService.findById(userId);
-    return { id: user.id, displayName: user.name || 'Atleta' };
+    const user = await this.usersService.findProfileById(userId);
+    return {
+      id: user.id,
+      displayName: user.name || 'Atleta',
+      experienceLevel: user.experienceLevel,
+    };
+  }
+
+  async setExperienceLevel(
+    userId: string,
+    input: { level?: unknown },
+  ): Promise<{ experienceLevel: ExperienceLevel }> {
+    assertUuid(userId, 'El usuario');
+    const errors = new ValidationErrors();
+    const level = readEnum(
+      errors,
+      input?.level,
+      'El nivel de experiencia',
+      EXPERIENCE_LEVELS,
+    );
+    errors.throwIfInvalid();
+    const saved = await this.usersService.updateExperienceLevel(
+      userId,
+      level as ExperienceLevel,
+    );
+    return { experienceLevel: saved as ExperienceLevel };
   }
 
   async getHome(userId: string): Promise<HomeView> {
@@ -50,7 +78,11 @@ export class HomeService {
       .filter((session) => session.date >= toDateOnly(weekStart))
       .map((session) => ({ date: session.date, minutes: session.minutes }));
 
-    const { week, weekProgress } = computeWeek(today, schedules, currentSessions);
+    const { week, weekProgress } = computeWeek(
+      today,
+      schedules,
+      currentSessions,
+    );
 
     const todayRoutine = routines.find((routine) =>
       routine.scheduledDays.includes(todayWeekday),
@@ -65,8 +97,13 @@ export class HomeService {
 
     // TODO: calcular récords personales del mes cuando exista el flujo de registrar entrenamientos.
     const stats = {
-      weekVolumeKg: this.round(currentWeekSessions.reduce((sum, s) => sum + s.volumeKg, 0)),
-      weekActiveMinutes: currentWeekSessions.reduce((sum, s) => sum + s.minutes, 0),
+      weekVolumeKg: this.round(
+        currentWeekSessions.reduce((sum, s) => sum + s.volumeKg, 0),
+      ),
+      weekActiveMinutes: currentWeekSessions.reduce(
+        (sum, s) => sum + s.minutes,
+        0,
+      ),
       personalRecordsThisMonth: 0,
     };
 
@@ -77,7 +114,69 @@ export class HomeService {
       weekProgress,
     );
 
-    return { todayWorkout, week, weekProgress, streakWeeks, stats };
+    const lastWorkout = await this.loadLastWorkout(userId);
+
+    return {
+      todayWorkout,
+      lastWorkout,
+      week,
+      weekProgress,
+      streakWeeks,
+      stats,
+    };
+  }
+
+  private async loadLastWorkout(
+    userId: string,
+  ): Promise<LastWorkoutView | null> {
+    const result = (await this.supabase
+      .from('workout_sessions')
+      .select('id, routine_id, finished_at, duration_minutes, total_volume_kg')
+      .eq('user_id', userId)
+      .not('finished_at', 'is', null)
+      .order('finished_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()) as QueryResult<Pick<
+      WorkoutSessionRow,
+      | 'id'
+      | 'routine_id'
+      | 'finished_at'
+      | 'duration_minutes'
+      | 'total_volume_kg'
+    > | null>;
+    if (result.error) throw result.error;
+
+    const row = result.data;
+    if (!row?.finished_at) {
+      return null;
+    }
+
+    const name = row.routine_id
+      ? await this.loadRoutineName(userId, row.routine_id)
+      : 'Entrenamiento libre';
+
+    return {
+      sessionId: row.id,
+      routineId: row.routine_id,
+      name,
+      finishedAt: row.finished_at,
+      durationMinutes: row.duration_minutes ?? 0,
+      volumeKg: this.round(this.toNumber(row.total_volume_kg)),
+    };
+  }
+
+  private async loadRoutineName(
+    userId: string,
+    routineId: string,
+  ): Promise<string> {
+    const result = (await this.supabase
+      .from('routines')
+      .select('name')
+      .eq('id', routineId)
+      .eq('user_id', userId)
+      .maybeSingle()) as QueryResult<{ name: string } | null>;
+    if (result.error) throw result.error;
+    return result.data?.name ?? 'Entrenamiento libre';
   }
 
   private async loadSessions(
@@ -90,10 +189,11 @@ export class HomeService {
       .eq('user_id', userId)
       .not('finished_at', 'is', null)
       .gte('finished_at', rangeStart.toISOString())) as QueryResult<
-      Pick<
-        WorkoutSessionRow,
-        'finished_at' | 'duration_minutes' | 'total_volume_kg'
-      >[] | null
+      | Pick<
+          WorkoutSessionRow,
+          'finished_at' | 'duration_minutes' | 'total_volume_kg'
+        >[]
+      | null
     >;
     if (result.error) throw result.error;
 
