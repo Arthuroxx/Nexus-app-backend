@@ -15,7 +15,7 @@ create table if not exists public.exercises (
   updated_at timestamptz not null default now(),
   constraint exercises_muscle_group_check check (
     muscle_group in (
-      'PECHO', 'ESPALDA', 'HOMBROS', 'BICEPS', 'TRICEPS',
+      'PECHO', 'ESPALDA', 'HOMBROS', 'BICEPS', 'TRICEPS', 'ANTEBRAZOS',
       'PIERNAS', 'GLUTEOS', 'CORE', 'CUERPO_COMPLETO'
     )
   ),

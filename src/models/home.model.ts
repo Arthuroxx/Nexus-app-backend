@@ -1,3 +1,4 @@
+import type { ExperienceLevel } from './experience.model';
 import type { RoutineDetail } from './routine.model';
 
 export type WeekStatus = 'DONE' | 'TODAY' | 'PLANNED' | 'REST';
@@ -22,8 +23,24 @@ export interface HomeStatsView {
   personalRecordsThisMonth: number;
 }
 
+export interface LastWorkoutView {
+  /** Identificador de la sesión de entrenamiento. */
+  sessionId: string;
+  /** Rutina realizada, o null si fue un entrenamiento libre. */
+  routineId: string | null;
+  /** Nombre de la rutina o `Entrenamiento libre`. */
+  name: string;
+  /** Fecha ISO del `finished_at`. */
+  finishedAt: string;
+  /** Duración total en minutos. */
+  durationMinutes: number;
+  /** Volumen total levantado en kg. */
+  volumeKg: number;
+}
+
 export interface HomeView {
   todayWorkout: RoutineDetail | null;
+  lastWorkout: LastWorkoutView | null;
   week: WeekDayView[];
   weekProgress: WeekProgressView;
   streakWeeks: number;
@@ -33,6 +50,7 @@ export interface HomeView {
 export interface MeView {
   id: string;
   displayName: string;
+  experienceLevel: ExperienceLevel | null;
 }
 
 export interface WorkoutSessionRow {

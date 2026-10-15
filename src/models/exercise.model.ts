@@ -4,6 +4,7 @@ export const MUSCLE_GROUPS = [
   'HOMBROS',
   'BICEPS',
   'TRICEPS',
+  'ANTEBRAZOS',
   'PIERNAS',
   'GLUTEOS',
   'CORE',

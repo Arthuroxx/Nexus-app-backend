@@ -52,7 +52,7 @@ export class ProblemDetailFilter implements ExceptionFilter {
       }
     } else {
       this.logger.error(
-        exception instanceof Error ? exception.message : String(exception),
+        this.describe(exception),
         exception instanceof Error ? exception.stack : undefined,
       );
     }
@@ -63,5 +63,16 @@ export class ProblemDetailFilter implements ExceptionFilter {
       status,
       detail,
     });
+  }
+
+  private describe(exception: unknown): string {
+    if (exception instanceof Error) {
+      return exception.message;
+    }
+    try {
+      return JSON.stringify(exception);
+    } catch {
+      return String(exception);
+    }
   }
 }
